@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { 
-  Calendar, Clock, Video, Phone, User, MapPin, 
-  CheckCircle, XCircle, AlertCircle, Plus, Search,
-  Filter, Edit, Trash2, Eye, MessageSquare
-} from 'lucide-react';
+import { Calendar, Clock, Video, Phone, User, MapPin, CheckCircle, XCircle, AlertCircle, Plus, Search, Filter, CreditCard as Edit, Trash2, Eye, MessageSquare } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import toast from 'react-hot-toast';
