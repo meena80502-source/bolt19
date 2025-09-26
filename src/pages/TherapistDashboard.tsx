@@ -198,8 +198,8 @@ function TherapistDashboard() {
     switch (type) {
       case 'booking': return 'text-blue-500';
       case 'session': return 'text-green-500';
-      case 'message': return 'text-purple-500';
-      case 'report': return 'text-orange-500';
+      case 'mood': return 'text-purple-500';
+      case 'therapy': return 'text-orange-500';
       default: return 'text-gray-500';
     }
   };
@@ -450,10 +450,10 @@ function TherapistDashboard() {
           </h3>
           <div className="grid md:grid-cols-4 gap-4">
             {[
-              { label: 'Sessions Completed', value: '12', icon: CheckCircle, color: 'text-green-500' },
-              { label: 'Revenue Generated', value: '$1,440', icon: DollarSign, color: 'text-green-600' },
+              { label: 'Sessions Completed', value: weekSessions.toString(), icon: CheckCircle, color: 'text-green-500' },
+              { label: 'Revenue Generated', value: `$${monthlyRevenue.toLocaleString()}`, icon: DollarSign, color: 'text-green-600' },
               { label: 'Patient Satisfaction', value: '4.8/5', icon: Star, color: 'text-yellow-500' },
-              { label: 'Response Time', value: '< 2h', icon: Clock, color: 'text-blue-500' }
+              { label: 'Active Patients', value: totalPatients.toString(), icon: Users, color: 'text-blue-500' }
             ].map((metric, index) => (
               <div key={index} className="text-center">
                 <div className="flex items-center justify-center mb-2">
@@ -472,6 +472,15 @@ function TherapistDashboard() {
               </div>
             ))}
           </div>
+          {recentActivity.length === 0 && (
+            <div className="text-center py-4">
+              <p className={`text-sm ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                No recent activity. Start by listing your service or booking appointments.
+              </p>
+            </div>
+          )}
         </motion.div>
       </div>
     </div>
