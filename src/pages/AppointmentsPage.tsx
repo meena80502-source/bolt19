@@ -34,8 +34,7 @@ function AppointmentsPage() {
   const [showNewAppointment, setShowNewAppointment] = useState(false);
   const navigate = useNavigate();
 
-  const [appointments, setAppointments] = useState<Appointment[]>([
-  ]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   useEffect(() => {
     // Load appointments from localStorage
@@ -76,25 +75,6 @@ function AppointmentsPage() {
     return () => clearInterval(interval);
   }, [user]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'confirmed': return 'bg-green-100 text-green-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      case 'completed': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getSessionIcon = (type: string) => {
-    switch (type) {
-      case 'video': return Video;
-      case 'phone': return Phone;
-      case 'in-person': return MapPin;
-      default: return Video;
-    }
-  };
-
   const handleStatusChange = (appointmentId: string, newStatus: string) => {
     // Update appointment status in localStorage
     const allBookings = JSON.parse(localStorage.getItem('mindcare_bookings') || '[]');
@@ -125,6 +105,25 @@ function AppointmentsPage() {
 
   const joinVideoSession = (appointmentId: string) => {
     navigate(`/video-session/${appointmentId}`);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'confirmed': return 'bg-green-100 text-green-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      case 'completed': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getSessionIcon = (type: string) => {
+    switch (type) {
+      case 'video': return Video;
+      case 'phone': return Phone;
+      case 'in-person': return MapPin;
+      default: return Video;
+    }
   };
 
   const filteredAppointments = appointments.filter(apt => {

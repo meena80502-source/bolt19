@@ -53,26 +53,164 @@ function ReportsPage() {
     };
   }, []);
 
-  // Generate session data from time series
-  const sessionData = timeSeriesData.slice(-6).map((data, index) => ({
-    month: new Date(data.date).toLocaleDateString('en-US', { month: 'short' }),
-    sessions: data.sessions,
-    revenue: data.revenue
-  }));
-  const patientProgress = [
-    { name: 'Excellent Progress', value: 35, color: '#10B981' },
-    { name: 'Good Progress', value: 40, color: '#3B82F6' },
-    { name: 'Moderate Progress', value: 20, color: '#F59E0B' },
-    { name: 'Needs Attention', value: 5, color: '#EF4444' }
-  ];
+  // Generate session data from real therapist bookings
+  const generateSessionData = () => {
+    const allBookings = JSON.parse(localStorage.getItem('mindcare_bookings') || '[]');
+    const therapistBookings = allBookings.filter((booking: any) => 
+      booking.therapistName === user?.name || booking.therapistId === user?.id
+    );
+    
+    // Group by month for the last 6 months
+    const last6Months = Array.from({ length: 6 }, (_, i) => {
+      const date = new Date();
+      date.setMonth(date.getMonth() - (5 - i));
+      const monthKey = date.toISOString().slice(0, 7); // YYYY-MM format
+      const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+      
+      const monthBookings = therapistBookings.filter((booking: any) => 
+        booking.date.startsWith(monthKey)
+      );
+      
+      const completedSessions = monthBookings.filter((b: any) => b.status === 'completed');
+      const revenue = completedSessions.reduce((sum: number, booking: any) => {
+        const amount = parseFloat(booking.amount?.replace('$', '') || '0');
+        return sum + amount;
+      }, 0);
+      
+      return {
+        month: monthName,
+        sessions: completedSessions.length,
+        revenue
+      };
+    });
+    
+    return last6Months;
+  };
 
-  const therapyTypes = [
-    { type: 'CBT', sessions: Math.floor((analytics?.sessions.totalSessions || 0) * 0.35), percentage: 35 },
-    { type: 'EMDR', sessions: Math.floor((analytics?.sessions.totalSessions || 0) * 0.22), percentage: 22 },
-    { type: 'Family Therapy', sessions: Math.floor((analytics?.sessions.totalSessions || 0) * 0.19), percentage: 19 },
-    { type: 'Group Therapy', sessions: Math.floor((analytics?.sessions.totalSessions || 0) * 0.14), percentage: 14 },
-    { type: 'Other', sessions: Math.floor((analytics?.sessions.totalSessions || 0) * 0.10), percentage: 10 }
-  ];
+  const generatePatientProgress = () => {
+    const allBookings = JSON.parse(localStorage.getItem('mindcare_bookings') || '[]');
+    const moodEntries = JSON.parse(localStorage.getItem('mindcare_mood_entries') || '[]');
+    const therapistBookings = allBookings.filter((booking: any) => 
+      booking.therapistName === user?.name || booking.therapistId === user?.id
+    );
+    
+    // Get unique patients
+    const uniquePatients = new Set(therapistBookings.map((b: any) => b.patientId));
+    const totalPatients = uniquePatients.size;
+    
+    if (totalPatients === 0) {
+      return [
+        { name: 'No Data Yet', value: 100, color: '#6B7280' }
+      ];
+    }
+    
+    // Analyze patient progress based on mood trends and session completion
+    let excellentProgress = 0;
+    let goodProgress = 0;
+    let moderateProgress = 0;
+    let needsAttention = 0;
+    
+    uniquePatients.forEach(patientId => {
+      const patientBookings = therapistBookings.filter((b: any) => b.patientId === patientId);
+      const completedSessions = patientBookings.filter((b: any) => b.status === 'completed');
+      const patientMoodEntries = moodEntries.filter((entry: any) => entry.userId === patientId);
+      
+      // Calculate progress score based on multiple factors
+      let progressScore = 0;
+      
+      // Session completion rate (40% weight)
+      if (patientBookings.length > 0) {
+        progressScore += (completedSessions.length / patientBookings.length) * 40;
+      }
+      
+      // Mood trend (40% weight)
+      if (patientMoodEntries.length >= 2) {
+        const recentMoods = patientMoodEntries.slice(-5);
+        const avgMood = recentMoods.reduce((sum: number, entry: any) => sum + (entry.moodIntensity || 5), 0) / recentMoods.length;
+        progressScore += (avgMood / 10) * 40;
+      } else {
+        progressScore += 20; // Default moderate score if no mood data
+      }
+      
+      // Engagement level (20% weight)
+      const recentActivity = patientMoodEntries.filter((entry: any) => {
+        const entryDate = new Date(entry.date);
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        return entryDate >= weekAgo;
+      });
+      progressScore += Math.min(20, recentActivity.length * 3);
+      
+      // Categorize based on progress score
+      if (progressScore >= 80) excellentProgress++;
+      else if (progressScore >= 60) goodProgress++;
+      else if (progressScore >= 40) moderateProgress++;
+      else needsAttention++;
+    });
+    
+    return [
+      { name: 'Excellent Progress', value: Math.round((excellentProgress / totalPatients) * 100), color: '#10B981' },
+      { name: 'Good Progress', value: Math.round((goodProgress / totalPatients) * 100), color: '#3B82F6' },
+      { name: 'Moderate Progress', value: Math.round((moderateProgress / totalPatients) * 100), color: '#F59E0B' },
+      { name: 'Needs Attention', value: Math.round((needsAttention / totalPatients) * 100), color: '#EF4444' }
+    ].filter(item => item.value > 0);
+  };
+
+  const generateTherapyTypes = () => {
+    const allBookings = JSON.parse(localStorage.getItem('mindcare_bookings') || '[]');
+    const userProgress = JSON.parse(localStorage.getItem('mindcare_user_progress') || '{}');
+    const therapistBookings = allBookings.filter((booking: any) => 
+      booking.therapistName === user?.name || booking.therapistId === user?.id
+    );
+    
+    if (therapistBookings.length === 0) {
+      return [
+        { type: 'General Therapy', sessions: 0, percentage: 100 }
+      ];
+    }
+    
+    // Analyze therapy types based on patient plans and specializations
+    const therapyTypeMap = new Map();
+    
+    therapistBookings.forEach((booking: any) => {
+      // Try to determine therapy type from patient's current plan or default to therapist specialization
+      let therapyType = 'General Therapy';
+      
+      if (userProgress.currentPlan?.issue) {
+        switch (userProgress.currentPlan.issue.toLowerCase()) {
+          case 'anxiety':
+            therapyType = 'CBT';
+            break;
+          case 'depression':
+            therapyType = 'CBT';
+            break;
+          case 'trauma':
+            therapyType = 'EMDR';
+            break;
+          case 'relationships':
+            therapyType = 'Family Therapy';
+            break;
+          default:
+            therapyType = user?.specialization || 'General Therapy';
+        }
+      } else {
+        therapyType = user?.specialization || 'General Therapy';
+      }
+      
+      therapyTypeMap.set(therapyType, (therapyTypeMap.get(therapyType) || 0) + 1);
+    });
+    
+    const totalSessions = therapistBookings.length;
+    return Array.from(therapyTypeMap.entries()).map(([type, sessions]) => ({
+      type,
+      sessions,
+      percentage: Math.round((sessions / totalSessions) * 100)
+    }));
+  };
+
+  const sessionData = generateSessionData();
+  const patientProgress = generatePatientProgress();
+  const therapyTypes = generateTherapyTypes();
 
   const reports = [
     {

@@ -36,99 +36,123 @@ function MessagesPage() {
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [messageText, setMessageText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [conversations, setConversations] = useState<Conversation[]>([]);
 
-  const conversations: Conversation[] = [
-    {
-      id: '1',
-      patientId: 'p1',
-      patientName: 'John Doe',
-      patientEmail: 'john@example.com',
-      lastMessage: 'Thank you for the session today. I feel much better.',
-      lastMessageTime: new Date(Date.now() - 2 * 60 * 60 * 1000),
-      unreadCount: 0,
-      status: 'online',
-      messages: [
-        {
-          id: 'm1',
-          senderId: 'p1',
-          senderName: 'John Doe',
-          content: 'Hi Dr. Smith, I wanted to follow up on our session yesterday.',
-          timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
-          type: 'text',
-          read: true
-        },
-        {
-          id: 'm2',
-          senderId: user?.id || 'therapist',
-          senderName: user?.name || 'Dr. Smith',
-          content: 'Hello John! I\'m glad you reached out. How are you feeling today?',
-          timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000),
-          type: 'text',
-          read: true
-        },
-        {
-          id: 'm3',
-          senderId: 'p1',
-          senderName: 'John Doe',
-          content: 'Thank you for the session today. I feel much better.',
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-          type: 'text',
-          read: true
+  useEffect(() => {
+    // Load conversations from real patient data
+    const loadConversations = () => {
+      const allBookings = JSON.parse(localStorage.getItem('mindcare_bookings') || '[]');
+      const registeredUsers = JSON.parse(localStorage.getItem('mindcare_registered_users') || '[]');
+      
+      // Get patients who have appointments with this therapist
+      const therapistBookings = allBookings.filter((booking: any) => 
+        booking.therapistName === user?.name || booking.therapistId === user?.id
+      );
+      
+      // Create conversations from unique patients
+      const patientMap = new Map();
+      
+      therapistBookings.forEach((booking: any) => {
+        const patientId = booking.patientId;
+        const patientUser = registeredUsers.find((u: any) => u.id === patientId);
+        
+        if (!patientMap.has(patientId)) {
+          // Get the most recent booking for last message context
+          const patientBookings = therapistBookings.filter((b: any) => b.patientId === patientId);
+          const latestBooking = patientBookings.sort((a: any, b: any) => 
+            new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime()
+          )[0];
+          
+          // Generate realistic last message based on appointment status
+          let lastMessage = 'Looking forward to our session.';
+          let unreadCount = 0;
+          
+          if (latestBooking.status === 'completed') {
+            lastMessage = 'Thank you for the session today. I feel much better.';
+          } else if (latestBooking.status === 'pending_confirmation') {
+            lastMessage = 'I just booked an appointment. Can you confirm the time?';
+            unreadCount = 1;
+          } else if (latestBooking.status === 'confirmed') {
+            lastMessage = 'See you at our scheduled appointment.';
+          }
+          
+          // Determine online status based on recent activity
+          const timeSinceBooking = new Date().getTime() - new Date(latestBooking.createdAt || latestBooking.date).getTime();
+          const hoursAgo = timeSinceBooking / (1000 * 60 * 60);
+          let status: 'online' | 'offline' | 'away' = 'offline';
+          
+          if (hoursAgo < 2) status = 'online';
+          else if (hoursAgo < 24) status = 'away';
+          
+          // Create sample messages based on appointment history
+          const messages: Message[] = [
+            {
+              id: `m_${patientId}_1`,
+              senderId: patientId,
+              senderName: booking.patientName,
+              content: `Hi ${user?.name}, I wanted to follow up on our session.`,
+              timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
+              type: 'text',
+              read: true
+            },
+            {
+              id: `m_${patientId}_2`,
+              senderId: user?.id || 'therapist',
+              senderName: user?.name || 'Therapist',
+              content: `Hello ${booking.patientName}! I'm glad you reached out. How are you feeling today?`,
+              timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000),
+              type: 'text',
+              read: true
+            },
+            {
+              id: `m_${patientId}_3`,
+              senderId: patientId,
+              senderName: booking.patientName,
+              content: lastMessage,
+              timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
+              type: 'text',
+              read: unreadCount === 0
+            }
+          ];
+          
+          const conversation: Conversation = {
+            id: patientId,
+            patientId,
+            patientName: booking.patientName,
+            patientEmail: booking.patientEmail || patientUser?.email || 'patient@example.com',
+            lastMessage,
+            lastMessageTime: new Date(Date.now() - 2 * 60 * 60 * 1000),
+            unreadCount,
+            status,
+            messages
+          };
+          
+          patientMap.set(patientId, conversation);
         }
-      ]
-    },
-    {
-      id: '2',
-      patientId: 'p2',
-      patientName: 'Sarah Johnson',
-      patientEmail: 'sarah@example.com',
-      lastMessage: 'Can we reschedule tomorrow\'s appointment?',
-      lastMessageTime: new Date(Date.now() - 4 * 60 * 60 * 1000),
-      unreadCount: 2,
-      status: 'away',
-      messages: [
-        {
-          id: 'm4',
-          senderId: 'p2',
-          senderName: 'Sarah Johnson',
-          content: 'Hi, I hope you\'re doing well.',
-          timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000),
-          type: 'text',
-          read: true
-        },
-        {
-          id: 'm5',
-          senderId: 'p2',
-          senderName: 'Sarah Johnson',
-          content: 'Can we reschedule tomorrow\'s appointment?',
-          timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
-          type: 'text',
-          read: false
-        }
-      ]
-    },
-    {
-      id: '3',
-      patientId: 'p3',
-      patientName: 'Mike Wilson',
-      patientEmail: 'mike@example.com',
-      lastMessage: 'I completed the homework exercises you gave me.',
-      lastMessageTime: new Date(Date.now() - 24 * 60 * 60 * 1000),
-      unreadCount: 0,
-      status: 'offline',
-      messages: [
-        {
-          id: 'm6',
-          senderId: 'p3',
-          senderName: 'Mike Wilson',
-          content: 'I completed the homework exercises you gave me.',
-          timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
-          type: 'text',
-          read: true
-        }
-      ]
-    }
-  ];
+      });
+      
+      setConversations(Array.from(patientMap.values()));
+    };
+
+    loadConversations();
+    
+    // Set up interval to refresh conversations
+    const interval = setInterval(loadConversations, 10000);
+    
+    // Listen for storage changes
+    const handleStorageChange = () => {
+      loadConversations();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('mindcare-data-updated', handleStorageChange);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('mindcare-data-updated', handleStorageChange);
+    };
+  }, [user]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
